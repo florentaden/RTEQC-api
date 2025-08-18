@@ -23,7 +23,7 @@ from typing import List
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, StreamingResponse, FileResponse
 
 
 Logger = logging.getLogger(__name__)
@@ -32,14 +32,26 @@ Logger = logging.getLogger(__name__)
 BASEPATH = "/tmp/outputs/detections"
 CATALOG_FILENAME = "{basepath}/{triggerID}/{triggerID}/output_out/catalog.csv"
 SOURCE_FILENAME = "{basepath}/{triggerID}/{triggerID}/plotter_out/output_metrics_summary_file.csv"
+PLOT_FILENAME = "{basepath}/{triggerID}/{triggerID}/plotter_out/{plot_type}_latest.png"
 
 
 HOST = "0.0.0.0"
 PORT = "8000"
 CATS = "http://{host}:{port}/catalog/?triggerID={triggerID}"
 TRIGGERS = "http://{host}:{port}/triggers"
-PLOTS = "http://{host}:{port}/plots/?triggerID={triggerID}"
+PLOTS = "http://{host}:{port}/plots/?triggerID={triggerID}&plot_type={plot_type}"
 SOURCES = "http://{host}:{port}/sources/?triggerID={triggerID}"
+
+KNOWN_PLOT_TYPES = [
+    "Scaled_Magnitude_Comparison",
+    "Aftershock_extent_depth_map",
+    "catalog_RT",
+    "catalog_templates",
+    "confidence_ellipsoid",
+    "confidence_ellipsoid_vertical",
+    "focal_sphere",
+    "Geometry_with_time"
+]
 
 
 def get_catalog(triggerID: str) -> pd.DataFrame:
@@ -131,26 +143,30 @@ def root():
         <tr>
             <th>TriggerID</th>
             <th>Catalog-URL</th>
-            <th>Plots-URL</th>
             <th>Sources-URL</th>
-        </tr>
     """
+    for plot_type in KNOWN_PLOT_TYPES:
+        trigger_table_head += f"\n<th>{plot_type} URL</th>"
+    trigger_table_head += "\n</tr>"
     trigger_table_foot = """
     </table>
     """
     trigger_table_body = []
     for trigger_id in trigger_ids:
         cat_url = CATS.format(host=HOST, port=PORT, triggerID=trigger_id)
-        plot_url = PLOTS.format(host=HOST, port=PORT, triggerID=trigger_id)
         source_url = SOURCES.format(host=HOST, port=PORT, triggerID=trigger_id)
         trigger_row = f"""
         <tr>
             <td>{trigger_id}</td>
-            <td><a href="{cat_url}" target=>{cat_url}</a></td>
-            <td><a href="{plot_url}" target=>{plot_url}</a></td>
-            <td><a href="{source_url}" target=>{source_url}</a></td>
-        </tr>
+            <td><a href="{cat_url}">Catalog</a></td>
+            <td><a href="{source_url}">Sources</a></td>
         """
+        for plot_type in KNOWN_PLOT_TYPES:
+            plot_url = PLOTS.format(host=HOST, port=PORT, triggerID=trigger_id,
+                                    plot_type=plot_type)
+            trigger_row += f"""\n<td><a href="{plot_url}">{plot_type}_latest</a></td>"""
+
+        trigger_row += "\n</tr>"
         trigger_table_body.append(trigger_row)
     trigger_table_body = "\n".join(trigger_table_body)
     trigger_table = "\n".join(
@@ -212,9 +228,32 @@ def root(triggerID: str):
 
 # Query for plots
 @app.get("/plots/")
-def root(triggerID: str):
-    return HTMLResponse(content="<html><p>Not implemented</p></html>",
-                        status_code=200)
+def root(triggerID: str, plot_type: str):
+    if plot_type not in KNOWN_PLOT_TYPES:
+        Logger.error(f"{plot_type} not in known types.")
+        return HTMLResponse(
+                content=f"""
+    <html>
+        <p>{plot_type} is not a known plot format.</p>
+        <p>Known plot types:</p>
+        <p>{KNOWN_PLOT_TYPES}</p>
+    </html>
+    """,
+            status_code=400)
+    plotfile = PLOT_FILENAME.format(
+        triggerID=triggerID, basepath=BASEPATH, plot_type=plot_type)
+    if not os.path.isfile(plotfile):
+        Logger.error(f"{plotfile} does not exist")
+        return HTMLResponse(
+                content=f"""
+    <html>
+        <p>{plot_type} is not a known plot format.</p>
+        <p>Known plot types:</p>
+        <p>{KNOWN_PLOT_TYPES}</p>
+    </html>
+    """,
+            status_code=400)
+    return FileResponse(path=plotfile)
 
 
 
