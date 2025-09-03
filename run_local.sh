@@ -55,10 +55,6 @@ esac
 shift
 done
 
-if [ ! -d $HOST_DIR ];then
-  echo "Directory not found: $HOST_DIR"
-  exit 1
-fi
 
 
 if [ "${CLEAN}" == "true" ]; then
@@ -68,14 +64,19 @@ fi
 
 if [ "${BUILD}" == "true" ]; then
   echo "Building ${IMAGE}:${TAG}"
-  # Usually you should be able to re-use the old image, for changes to the rteqcorrscan or 
-  # eqcorrscan repos we need to rebuild
+  # Usually you should be able to re-use the old image, for changes to deps though we need to rebuild
   if [ "${CLEAN}" == "true" ]; then
       docker build --no-cache -t $IMAGE:${TAG} .
   else
       docker build -t $IMAGE .
   fi
 fi
+
+if [ ! -d $HOST_DIR ];then
+  echo "Directory not found: $HOST_DIR"
+  exit 1
+fi
+
 
 if [ "${RUN}" == "true" ]; then
   echo "Running API"
