@@ -28,6 +28,10 @@ from fastapi.responses import HTMLResponse, StreamingResponse, FileResponse
 
 Logger = logging.getLogger(__name__)
 
+logging.basicConfig(
+    level="INFO", 
+    format="%(asctime)s\t[%(processName)s:%(threadName)s]: %(name)s\t%(levelname)s\t%(message)s")
+
 
 BASEPATH = "/tmp/outputs/detections"
 CATALOG_FILENAME = "{basepath}/{triggerID}/{triggerID}/output_out/catalog.csv"
@@ -262,5 +266,4 @@ def main():
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level="INFO")
     main()
