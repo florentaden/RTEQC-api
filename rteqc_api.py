@@ -137,8 +137,23 @@ async def root():
     """
     return HTMLResponse(content=html_content, status_code=200)
 
-# Query for events
+# Query for triggers
 @app.get("/triggers/")
+def root():
+    try:
+        trigger_ids = get_triggers()
+    except Exception as e:
+        return f"ERROR: {e}"
+
+    return StreamingResponse(
+        {"trigger_ids": trigger_ids},
+        media_type="application/json",
+        headers={"Content-Disposition":
+                 f"attachment;filename=trigger_IDs.json"}
+    )
+
+# HTML render for events
+@app.get("/trigger_table/")
 def root():
     trigger_ids = get_triggers()
     
